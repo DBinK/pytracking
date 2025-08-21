@@ -20,15 +20,21 @@ def irfftshift2(a: torch.Tensor):
 def cfft2(a):
     """Do FFT and center the low frequency component.
     Always produces odd (full) output sizes."""
-
-    return rfftshift2(torch.rfft(a, 2))
+    # 使用新的 torch.fft.rfft2 替代已弃用的 torch.rfft
+    fft_result = torch.fft.rfft2(a)
+    # 将复数结果转换为实部和虚部的形式 (..., 2)
+    fft_result_stacked = torch.stack((fft_result.real, fft_result.imag), dim=-1)
+    return rfftshift2(fft_result_stacked)
 
 
 @tensor_operation
 def cifft2(a, signal_sizes=None):
     """Do inverse FFT corresponding to cfft2."""
-
-    return torch.irfft(irfftshift2(a), 2, signal_sizes=signal_sizes)
+    # 使用新的 torch.fft.irfft2 替代已弃用的 torch.irfft
+    # 首先将实部和虚部形式转换为复数
+    a_unshifted = irfftshift2(a)
+    a_complex = torch.complex(a_unshifted[..., 0], a_unshifted[..., 1])
+    return torch.fft.irfft2(a_complex, s=signal_sizes)
 
 
 @tensor_operation

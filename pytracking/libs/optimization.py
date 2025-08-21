@@ -248,7 +248,23 @@ class ConjugateGradient(ConjugateGradientBase):
         self.g.requires_grad_(True)
 
         # Get df/dx^t @ f0
-        self.dfdxt_g = TensorList(torch.autograd.grad(self.f0, self.x, self.g, create_graph=True))
+        # 将 TensorList 转换为普通列表以兼容 torch.autograd.grad
+        if isinstance(self.f0, TensorList):
+            f0_tensors = list(self.f0)
+        else:
+            f0_tensors = self.f0
+            
+        if isinstance(self.x, TensorList):
+            x_tensors = list(self.x)
+        else:
+            x_tensors = self.x
+            
+        if isinstance(self.g, TensorList):
+            g_tensors = list(self.g)
+        else:
+            g_tensors = self.g
+
+        self.dfdxt_g = TensorList(torch.autograd.grad(f0_tensors, x_tensors, g_tensors, create_graph=True))
 
         # Get the right hand side
         self.b = - self.dfdxt_g.detach()
@@ -392,7 +408,23 @@ class GaussNewtonCG(ConjugateGradientBase):
         self.g.requires_grad_(True)
 
         # Get df/dx^t @ f0
-        self.dfdxt_g = TensorList(torch.autograd.grad(self.f0, self.x, self.g, create_graph=True))
+        # 将 TensorList 转换为普通列表以兼容 torch.autograd.grad
+        if isinstance(self.f0, TensorList):
+            f0_tensors = list(self.f0)
+        else:
+            f0_tensors = self.f0
+            
+        if isinstance(self.x, TensorList):
+            x_tensors = list(self.x)
+        else:
+            x_tensors = self.x
+            
+        if isinstance(self.g, TensorList):
+            g_tensors = list(self.g)
+        else:
+            g_tensors = self.g
+
+        self.dfdxt_g = TensorList(torch.autograd.grad(f0_tensors, x_tensors, g_tensors, create_graph=True))
 
         # Get the right hand side
         self.b = - self.dfdxt_g.detach()
@@ -408,8 +440,33 @@ class GaussNewtonCG(ConjugateGradientBase):
 
 
     def A(self, x):
-        dfdx_x = torch.autograd.grad(self.dfdxt_g, self.g, x, retain_graph=True)
-        return TensorList(torch.autograd.grad(self.f0, self.x, dfdx_x, retain_graph=True))
+        # 将 TensorList 转换为普通列表以兼容 torch.autograd.grad
+        if isinstance(self.dfdxt_g, TensorList):
+            dfdxt_g_tensors = list(self.dfdxt_g)
+        else:
+            dfdxt_g_tensors = self.dfdxt_g
+            
+        if isinstance(self.g, TensorList):
+            g_tensors = list(self.g)
+        else:
+            g_tensors = self.g
+            
+        if isinstance(x, TensorList):
+            x_tensors = list(x)
+        else:
+            x_tensors = x
+
+        dfdx_x = torch.autograd.grad(dfdxt_g_tensors, g_tensors, x_tensors, retain_graph=True)
+        if isinstance(self.f0, TensorList):
+            f0_tensors = list(self.f0)
+        else:
+            f0_tensors = self.f0
+            
+        if isinstance(self.x, TensorList):
+            x_tensors = list(self.x)
+        else:
+            x_tensors = self.x
+        return TensorList(torch.autograd.grad(f0_tensors, x_tensors, dfdx_x, retain_graph=True))
 
     def ip(self, a, b):
         return self.problem.ip_input(a, b)
@@ -613,7 +670,35 @@ class NewtonCG(ConjugateGradientBase):
 
 
     def A(self, x):
-        return TensorList(torch.autograd.grad(self.g, self.x, x, retain_graph=True)) + self.hessian_reg * x
+        # 将 TensorList 转换为普通列表以兼容 torch.autograd.grad
+        if isinstance(self.dfdxt_g, TensorList):
+            dfdxt_g_tensors = list(self.dfdxt_g)
+        else:
+            dfdxt_g_tensors = self.dfdxt_g
+            
+        if isinstance(self.g, TensorList):
+            g_tensors = list(self.g)
+        else:
+            g_tensors = self.g
+            
+        if isinstance(x, TensorList):
+            x_tensors = list(x)
+        else:
+            x_tensors = x
+
+        dfdx_x = torch.autograd.grad(dfdxt_g_tensors, g_tensors, x_tensors, retain_graph=True)
+        
+        if isinstance(self.f0, TensorList):
+            f0_tensors = list(self.f0)
+        else:
+            f0_tensors = self.f0
+            
+        if isinstance(self.x, TensorList):
+            x_tensors = list(self.x)
+        else:
+            x_tensors = self.x
+            
+        return TensorList(torch.autograd.grad(f0_tensors, x_tensors, dfdx_x, retain_graph=True))
 
     def ip(self, a, b):
         # Implements the inner product

@@ -249,9 +249,13 @@ class ATOM(BaseTracker):
                 update_scale_flag = self.params.get('update_scale_when_uncertain', True) or flag != 'uncertain'
                 if self.params.get('use_classifier', True):
                     self.update_state(sample_pos + translation_vec)
-                self.refine_target_box(sample_pos, sample_scales[scale_ind], scale_ind, update_scale_flag)
+                # 确保 scale_ind 是 CPU 上的标量值
+                scale_ind_cpu = scale_ind.item() if isinstance(scale_ind, torch.Tensor) else scale_ind
+                self.refine_target_box(sample_pos, sample_scales[scale_ind_cpu], scale_ind_cpu, update_scale_flag)
             elif self.params.get('use_classifier', True):
-                self.update_state(sample_pos + translation_vec, sample_scales[scale_ind])
+                # 确保 scale_ind 是 CPU 上的标量值
+                scale_ind_cpu = scale_ind.item() if isinstance(scale_ind, torch.Tensor) else scale_ind
+                self.update_state(sample_pos + translation_vec, sample_scales[scale_ind_cpu])
 
         score_map = s[scale_ind, ...]
         max_score = torch.max(score_map).item()
@@ -273,10 +277,12 @@ class ATOM(BaseTracker):
 
         if update_flag:
             # Get train sample
-            train_x = TensorList([x[scale_ind:scale_ind+1, ...] for x in test_x])
+            # 确保 scale_ind 是 CPU 上的标量值
+            scale_ind_cpu = scale_ind.item() if isinstance(scale_ind, torch.Tensor) else scale_ind
+            train_x = TensorList([x[scale_ind_cpu:scale_ind_cpu+1, ...] for x in test_x])
 
             # Create label for sample
-            train_y = self.get_label_function(sample_pos, sample_scales[scale_ind])
+            train_y = self.get_label_function(sample_pos, sample_scales[scale_ind_cpu])
 
             # Update memory
             self.update_memory(train_x, train_y, learning_rate)
@@ -711,8 +717,12 @@ class ATOM(BaseTracker):
             # Get random initial boxes
             square_box_sz = init_box[2:].prod().sqrt()
             rand_factor = square_box_sz * torch.cat([self.params.box_jitter_pos * torch.ones(2), self.params.box_jitter_sz * torch.ones(2)])
+            # 确保 rand_factor 和 init_box 在同一设备上
+            rand_factor = rand_factor.to(init_box.device)
             minimal_edge_size = init_box[2:].min()/3
             rand_bb = (torch.rand(self.params.num_init_random_boxes, 4) - 0.5) * rand_factor
+            # 确保 rand_bb 和 init_box 在同一设备上
+            rand_bb = rand_bb.to(init_box.device)
             new_sz = (init_box[2:] + rand_bb[:,2:]).clamp(minimal_edge_size)
             new_center = (init_box[:2] + init_box[2:]/2) + rand_bb[:,:2]
             init_boxes = torch.cat([new_center - new_sz/2, new_sz], 1)
@@ -725,6 +735,8 @@ class ATOM(BaseTracker):
         output_boxes[:, 2:].clamp_(1)
         aspect_ratio = output_boxes[:,2] / output_boxes[:,3]
         keep_ind = (aspect_ratio < self.params.maximal_aspect_ratio) * (aspect_ratio > 1/self.params.maximal_aspect_ratio)
+        # 确保 keep_ind 和 output_boxes 在同一设备上
+        keep_ind = keep_ind.to(output_boxes.device)
         output_boxes = output_boxes[keep_ind,:]
         output_iou = output_iou[keep_ind]
 
@@ -736,6 +748,8 @@ class ATOM(BaseTracker):
         k = self.params.get('iounet_k', 5)
         topk = min(k, output_boxes.shape[0])
         _, inds = torch.topk(output_iou, topk)
+        # 确保 inds 和 output_boxes 在同一设备上
+        inds = inds.to(output_boxes.device)
         predicted_box = output_boxes[inds, :].mean(0)
         predicted_iou = output_iou.view(-1, 1)[inds, :].mean(0)
 
