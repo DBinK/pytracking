@@ -17,6 +17,7 @@ dependencies = [
     "scikit-image>=0.25.2",
     "tensorboard>=2.20.0",
     "tikzplotlib>=0.10.1",
+    "timm>=1.0.19",
     "torch>=2.8.0",
     "torchvision>=0.23.0",
     "tqdm>=4.67.1",
@@ -38,8 +39,8 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu" },
+  { index = "pytorch-cu128" },
 ]
 torchvision = [
-  { index = "pytorch-cpu" },
+  { index = "pytorch-cu128" },
 ]

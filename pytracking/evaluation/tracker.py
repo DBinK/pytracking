@@ -257,10 +257,11 @@ class Tracker:
 
         return output
 
-    def run_video_generic(self, debug=None, visdom_info=None, videofilepath=None, optional_box=None, save_results=False):
+    def run_video_generic(self, debug=None, visdom_info=None, videofilepath=None, optional_box=None, save_results=False, camera_id=0):
         """Run the tracker with the webcam or a provided video file.
         args:
             debug: Debug level.
+            camera_id: ID of the camera to use (default is 0)
         """
 
         params = self.get_parameters()
@@ -335,7 +336,8 @@ class Tracker:
             frame_number += 1
             cv.imshow(display_name, frame)
         else:
-            cap = cv.VideoCapture(0)
+            # Use specified camera_id instead of hardcoded 0
+            cap = cv.VideoCapture(camera_id)
 
 
         next_object_id = 1
