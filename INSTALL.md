@@ -26,7 +26,7 @@ conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
 #### Install matplotlib, pandas, tqdm, opencv, scikit-image, visdom, tikzplotlib, gdown, and tensorboad  
 ```bash
 conda install matplotlib pandas tqdm
-pip install opencv-python visdom tb-nightly scikit-image tikzplotlib gdown
+pip install opencv-python visdom tensorboard scikit-image tikzplotlib gdown
 ```
 
 
@@ -41,7 +41,7 @@ pip install lvis
 #### Install ninja-build for Precise ROI pooling  
 To compile the Precise ROI pooling module (https://github.com/vacancy/PreciseRoIPooling), you may additionally have to install ninja-build.
 ```bash
-sudo apt-get install ninja-build
+sudo apt install ninja-build
 ```
 In case of issues, we refer to https://github.com/vacancy/PreciseRoIPooling.  
 
@@ -55,11 +55,11 @@ In case of issues, we refer to https://github.com/ClementPinard/Pytorch-Correlat
 #### Install jpeg4py  
 In order to use [jpeg4py](https://github.com/ajkxyz/jpeg4py) for loading the images instead of OpenCV's imread(), install jpeg4py in the following way,  
 ```bash
-sudo apt-get install libturbojpeg
+sudo apt install libturbojpeg
 pip install jpeg4py 
 ```
 
-**Note:** The first step (```sudo apt-get install libturbojpeg```) can be optionally ignored, in which case OpenCV's imread() will be used to read the images. However the second step is a must.  
+**Note:** The first step (```sudo apt install libturbojpeg```) can be optionally ignored, in which case OpenCV's imread() will be used to read the images. However the second step is a must.  
 
 In case of issues, we refer to https://github.com/ajkxyz/jpeg4py.  
 
