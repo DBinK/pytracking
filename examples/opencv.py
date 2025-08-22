@@ -68,5 +68,6 @@ def minimal_tracking_demo(video_path, initial_bbox, tracker_name="dimp", tracker
 if __name__ == "__main__":  
     # 预定义的边界框 [x, y, width, height]  
     predefined_bbox = [100, 100, 50, 50]  # 根据您的需求修改  
-    camera_id = "http://192.168.50.244:4747/video"
+    # camera_id = "http://192.168.50.244:4747/video"
+    camera_id = "tmp/1.mp4"
     minimal_tracking_demo(camera_id, predefined_bbox)
