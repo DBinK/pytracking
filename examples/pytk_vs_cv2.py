@@ -28,7 +28,7 @@ bbox_pytk = cv2.selectROI("Frame", frame, False)
 tracker_pytk = TrackerDiMP_create()
 success = tracker_pytk.init(frame, bbox_pytk)
 
-tracker_cv2 = cv2.TrackerCSRT_create() 
+tracker_cv2 = cv2.TrackerCSRT_create()  # type: ignore
 tracker_cv2.init(frame, bbox_pytk)
 
 if not success:
