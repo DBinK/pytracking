@@ -80,11 +80,15 @@ class PyTrackingWrapper:
             # 获取边界框
             if 'target_bbox' in output:
                 bbox = output['target_bbox']
-                # 确保bbox是正确的格式
+                # 确保bbox是正确的格式并转换为整数
                 if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
-                    return True, list(bbox)
+                    # 转换为整数并返回
+                    int_bbox = [int(coord) for coord in bbox]
+                    return True, int_bbox
                 elif isinstance(bbox, np.ndarray) and bbox.shape[0] == 4:
-                    return True, bbox.tolist()
+                    # 转换为整数并返回
+                    int_bbox = [int(coord) for coord in bbox.tolist()]
+                    return True, int_bbox
             
             return False, None
         except Exception as e:
