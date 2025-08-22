@@ -31,7 +31,7 @@ if __name__ == "__main__":
         print("追踪器初始化失败")
         sys.exit(1)
     
-    # cv2.namedWindow("追踪", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("追踪", cv2.WINDOW_NORMAL)
     
     while True:
         ret, frame = cap.read()
