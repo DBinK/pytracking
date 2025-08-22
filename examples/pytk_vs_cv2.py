@@ -6,8 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import cv2
 
-from examples.py2cv import TrackerDiMP_create
-
+from interfaces.cv_wrapper import TrackerDiMP_create
 
 # 示例用法，类似于OpenCV的使用方式
 
