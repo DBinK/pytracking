@@ -1,13 +1,11 @@
-import cv2 as cv  
-import sys  
-import os  
-  
-# 添加pytracking路径  
-env_path = os.path.join(os.path.dirname(__file__), '..')  
-if env_path not in sys.path:  
-    sys.path.append(env_path)  
-  
-from pytracking.evaluation import Tracker  
+import cv2
+import sys
+import os
+
+# 添加项目根目录到 Python 路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from pytracking.evaluation import Tracker 
   
 def minimal_tracking_demo(video_path, initial_bbox, tracker_name="dimp", tracker_param="dimp50"):  
     """  
@@ -22,7 +20,7 @@ def minimal_tracking_demo(video_path, initial_bbox, tracker_name="dimp", tracker
     tracker = Tracker(tracker_name, tracker_param)  
       
     # 打开视频  
-    cap = cv.VideoCapture(video_path)  
+    cap = cv2.VideoCapture(video_path)  
     ret, frame = cap.read()  
       
     if not ret:  
@@ -50,21 +48,21 @@ def minimal_tracking_demo(video_path, initial_bbox, tracker_name="dimp", tracker
               
             # 绘制边界框  
             x, y, w, h = [int(v) for v in bbox]  
-            cv.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)  
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)  
         else:  
             # 绘制初始边界框  
             x, y, w, h = initial_bbox  
-            cv.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)  
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)  
           
         # 显示结果  
-        cv.imshow('Tracking', frame)  
-        if cv.waitKey(1) & 0xFF == ord('q'):  
+        cv2.imshow('Tracking', frame)  
+        if cv2.waitKey(1) & 0xFF == ord('q'):  
             break  
               
         frame_idx += 1  
       
     cap.release()  
-    cv.destroyAllWindows()  
+    cv2.destroyAllWindows()  
   
 # 使用示例  
 if __name__ == "__main__":  
