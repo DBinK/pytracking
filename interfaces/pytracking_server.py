@@ -2,6 +2,8 @@ import zmq
 import cv2
 import numpy as np
 import json
+import threading
+import time
 
 import sys
 import os
@@ -10,14 +12,85 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from interfaces.cv_wrapper import TrackerDiMP_create
 
 
+class SessionThread(threading.Thread):
+    def __init__(self, session_id, frame, bbox):
+        super().__init__()
+        self.session_id = session_id
+        self.frame = frame
+        self.bbox = bbox
+        self.tracker = None
+        self.initialized = False
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.result = None
+        self.result_available = threading.Event()
+
+    def run(self):
+        try:
+            # 初始化跟踪器
+            self.tracker = TrackerDiMP_create()
+            self.tracker.init(self.frame, tuple(self.bbox))
+            self.initialized = True
+            
+            # 通知主线程初始化完成
+            self.result = {"status": "ok"}
+            self.result_available.set()
+            
+            # 持续处理更新请求
+            while not self.stop_event.is_set():
+                time.sleep(0.001)  # 避免过度占用CPU
+                
+        except Exception as e:
+            print(f"会话 {self.session_id} 初始化跟踪器失败: {e}")
+            self.result = {"status": "error", "msg": str(e)}
+            self.result_available.set()
+
+    def update(self, frame):
+        if not self.initialized or self.tracker is None:
+            return None
+
+        try:
+            # 调用实际的追踪器更新方法
+            success, bbox = self.tracker.update(frame)
+
+            # 显示帧（仅用于调试）
+            if frame is not None:
+                cv2.namedWindow(self.session_id, cv2.WINDOW_NORMAL)
+
+            if success and bbox is not None:
+                # 绘制边界框
+                x, y, w, h = [int(v) for v in bbox]
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.putText(frame, "DiMP", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+                
+                cv2.imshow(self.session_id, frame)
+                cv2.waitKey(1)
+                return bbox
+            
+            else:
+                cv2.putText(frame, "追踪失败", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+                cv2.imshow(self.session_id, frame)
+                cv2.waitKey(1)
+                return None
+            
+        except Exception as e:
+            print(f"会话 {self.session_id} 更新跟踪器失败: {e}")
+            return None
+
+    def stop(self):
+        self.stop_event.set()
+        cv2.destroyWindow(self.session_id)
+
+
 class TrackerServer:
     def __init__(self):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind("tcp://*:5555")
         
-        # 存储多个跟踪器实例，以会话ID为键
-        self.trackers = {}
+        # 存储多个会话线程，以会话ID为键
+        self.sessions = {}
+        self.sessions_lock = threading.Lock()
         
         print("服务端启动...")
 
@@ -28,77 +101,48 @@ class TrackerServer:
 
     def init_tracker(self, session_id, frame, bbox):
         """
-        初始化追踪器
+        初始化追踪器线程
         """
-        # 如果会话不存在，创建新会话
-        if session_id not in self.trackers:
-            self.trackers[session_id] = {
-                'tracker': None,
-                'initialized': False,
-                'bbox': None
-            }
-
-        try:
-            # 初始化实际的追踪器
-            tracker = TrackerDiMP_create()
-            tracker.init(frame, tuple(bbox))
+        with self.sessions_lock:
+            # 如果会话已存在，先停止它
+            if session_id in self.sessions:
+                self.sessions[session_id].stop()
+                self.sessions[session_id].join()
+                
+            # 创建并启动新的会话线程
+            session_thread = SessionThread(session_id, frame, bbox)
+            session_thread.start()
+            self.sessions[session_id] = session_thread
             
-            # 保存跟踪器状态
-            self.trackers[session_id]['tracker'] = tracker
-            self.trackers[session_id]['initialized'] = True
-            self.trackers[session_id]['bbox'] = tuple(bbox)
-            
-            return True
-        except Exception as e:
-            print(f"初始化跟踪器失败: {e}")
-            return False
+            # 等待初始化结果
+            session_thread.result_available.wait()
+            return session_thread.result
 
     def update_tracker(self, session_id, frame):
         """
         更新追踪器
         """
-        if session_id not in self.trackers or not self.trackers[session_id]['initialized']:
-            return None
-
-        try:
-            # 调用实际的追踪器更新方法
-            success, bbox = self.trackers[session_id]['tracker'].update(frame)
-
-            # 显示帧（仅用于调试）
-            if frame is not None:
-                cv2.namedWindow(session_id, cv2.WINDOW_NORMAL)
-
-            if success and bbox is not None:
-                # 绘制边界框
-                x, y, w, h = [int(v) for v in bbox]
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(frame, "DiMP", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
-                
-                cv2.imshow(session_id, frame)
-                cv2.waitKey(1)
-
-                # 更新保存的边界框
-                self.trackers[session_id]['bbox'] = bbox
-                return bbox
-            
-            else:
-                cv2.putText(frame, "追踪失败", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-                cv2.imshow(session_id, frame)
-                cv2.waitKey(1)
-
+        with self.sessions_lock:
+            if session_id not in self.sessions:
                 return None
+                
+            session_thread = self.sessions[session_id]
             
-        except Exception as e:
-            print(f"更新跟踪器失败: {e}")
+        if not session_thread.initialized:
             return None
+            
+        return session_thread.update(frame)
 
     def release_tracker(self, session_id):
         """
         释放指定会话的跟踪器
         """
-        if session_id in self.trackers:
-            del self.trackers[session_id]
-            return True
+        with self.sessions_lock:
+            if session_id in self.sessions:
+                self.sessions[session_id].stop()
+                self.sessions[session_id].join()
+                del self.sessions[session_id]
+                return True
         return False
 
     def handle_init_command(self, frame, msg):
@@ -109,11 +153,8 @@ class TrackerServer:
         if not session_id:
             return {"status": "error", "msg": "session_id is required"}
         
-        success = self.init_tracker(session_id, frame, msg["bbox"])
-        if success:
-            return {"status": "ok"}
-        else:
-            return {"status": "error", "msg": "failed to initialize tracker"}
+        result = self.init_tracker(session_id, frame, msg["bbox"])
+        return result
 
     def handle_update_command(self, frame, msg):
         if frame is None:
@@ -141,28 +182,36 @@ class TrackerServer:
             return {"status": "error", "msg": "failed to release tracker"}
 
     def run(self):
-        while True:
-            # multipart 接收: [json字符串, 图像二进制]
-            meta_str, frame_buf = self.socket.recv_multipart()
-            msg = json.loads(meta_str.decode("utf-8"))
-            cmd = msg["cmd"]
+        try:
+            while True:
+                # multipart 接收: [json字符串, 图像二进制]
+                meta_str, frame_buf = self.socket.recv_multipart()
+                msg = json.loads(meta_str.decode("utf-8"))
+                cmd = msg["cmd"]
 
-            if cmd == "init":
-                frame = self.decode_frame(frame_buf)
-                response = self.handle_init_command(frame, msg)
-                self.socket.send_json(response)
+                if cmd == "init":
+                    frame = self.decode_frame(frame_buf)
+                    response = self.handle_init_command(frame, msg)
+                    self.socket.send_json(response)
 
-            elif cmd == "update":
-                frame = self.decode_frame(frame_buf)
-                response = self.handle_update_command(frame, msg)
-                self.socket.send_json(response)
+                elif cmd == "update":
+                    frame = self.decode_frame(frame_buf)
+                    response = self.handle_update_command(frame, msg)
+                    self.socket.send_json(response)
 
-            elif cmd == "release":
-                response = self.handle_release_command(msg)
-                self.socket.send_json(response)
+                elif cmd == "release":
+                    response = self.handle_release_command(msg)
+                    self.socket.send_json(response)
 
-            else:
-                self.socket.send_json({"status": "error", "msg": "unknown command"})
+                else:
+                    self.socket.send_json({"status": "error", "msg": "unknown command"})
+        finally:
+            # 清理所有会话
+            with self.sessions_lock:
+                for session_id, session_thread in self.sessions.items():
+                    session_thread.stop()
+                    session_thread.join()
+                self.sessions.clear()
 
 
 if __name__ == "__main__":

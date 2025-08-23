@@ -62,7 +62,9 @@ class RemoteTracker:
 
 
 if __name__ == "__main__":
+
     tracker = RemoteTracker()
+
     cap = cv2.VideoCapture("tmp/2.mp4")
 
     print(f"视频帧数: {cap.get(cv2.CAP_PROP_FRAME_COUNT)}")
@@ -76,9 +78,10 @@ if __name__ == "__main__":
             tracker.init(frame, (651, 259, 114, 90))
 
         start_tick = cv2.getTickCount()
+        
         success, bbox = tracker.update(frame)
+
         end_tick = cv2.getTickCount()
         elapsed_time = (end_tick - start_tick) / cv2.getTickFrequency() * 1000
 
-        print("追踪结果:", success, bbox)
-        print(f"tracker.update() 执行时间: {elapsed_time:.6f} ms")
+        print(f"追踪结果: {success} {bbox} 耗时: {elapsed_time:.3f} ms")
