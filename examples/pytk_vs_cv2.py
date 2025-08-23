@@ -1,7 +1,6 @@
 
 import sys
 import os
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import cv2
@@ -23,6 +22,7 @@ if not ret:
 
 # 手动选择跟踪目标区域 (x, y, w, h) - 与你的cvtracker.py保持一致
 bbox_pytk = cv2.selectROI("Frame", frame, False)
+print(f"\nbbox_pytk: {bbox_pytk}\n")
 
 # 创建追踪器
 tracker_pytk = TrackerDiMP_create()

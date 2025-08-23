@@ -48,7 +48,7 @@ class RemoteTracker:
 
 if __name__ == "__main__":
     tracker = RemoteTracker()
-    cap = cv2.VideoCapture("tmp/1.mp4")
+    cap = cv2.VideoCapture("tmp/2.mp4")
 
     print(f"视频帧数: {cap.get(cv2.CAP_PROP_FRAME_COUNT)}")
     
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             break
 
         if not tracker.initialized:
-            tracker.init(frame, (100, 100, 400, 400))
+            tracker.init(frame, (651, 259, 114, 90))
 
         start_tick = cv2.getTickCount()
         success, bbox = tracker.update(frame)
