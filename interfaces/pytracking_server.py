@@ -14,6 +14,9 @@ from loguru import logger
 
 from interfaces.cv_wrapper import TrackerDiMP_create
 
+logger.remove()  # 移除默认的处理器
+logger.add(sys.stderr, level="INFO")  # 添加新的处理器，级别为DEBUG
+# logger.add(sys.stderr, level="DEBUG")  # 添加新的处理器，级别为DEBUG
 
 class SessionThread(threading.Thread):
     def __init__(self, session_id, frame, bbox, vis=False):
@@ -273,6 +276,6 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     
     # server = TrackerServer(vis=args.debug)
-    # server = TrackerServer(vis=False)
-    server = TrackerServer(vis=True)
+    server = TrackerServer(vis=False)
+    # server = TrackerServer(vis=True)
     server.run()

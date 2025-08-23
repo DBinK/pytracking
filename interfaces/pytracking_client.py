@@ -1,10 +1,15 @@
 # pytracking_client.py
 import json
 import uuid
+import sys
 
 import zmq
 import cv2
-from loguru import logger
+from loguru import logger# 设置日志级别为DEBUG，这样就能看到debug信息了
+
+logger.remove()  # 移除默认的处理器
+logger.add(sys.stderr, level="INFO")  # 添加新的处理器，级别为DEBUG
+# logger.add(sys.stderr, level="DEBUG")  # 添加新的处理器，级别为DEBUG
 
 class RemoteTracker:
     def __init__(self, address="tcp://127.0.0.1:5555"):
@@ -82,6 +87,7 @@ class RemoteTracker:
 if __name__ == "__main__":
 
     tracker = RemoteTracker()
+    tracker.release()
 
     cap = cv2.VideoCapture("tmp/2.mp4")
 
