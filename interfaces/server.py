@@ -17,6 +17,8 @@ def decode_frame(buf):
     np_arr = np.frombuffer(buf, dtype=np.uint8)
     return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
+cv2.namedWindow("追踪", cv2.WINDOW_NORMAL)
+
 while True:
     # multipart 接收: [json字符串, 图像二进制]
     meta_str, frame_buf = socket.recv_multipart()
@@ -25,6 +27,9 @@ while True:
 
     if cmd == "init":
         frame = decode_frame(frame_buf)
+        if frame is None:
+            socket.send_json({"status": "error", "msg": "failed to decode frame"})
+            continue
         init_bbox = tuple(msg["bbox"])
         bbox = init_bbox
         tracker_initialized = True
@@ -35,12 +40,18 @@ while True:
 
     elif cmd == "update" and tracker_initialized:
         frame = decode_frame(frame_buf)
+        if frame is None:
+            socket.send_json({"status": "error", "msg": "failed to decode frame"})
+            continue
 
         # TODO: 调用 tracker.update(frame)
 
         bbox = [x+1 for x in bbox] # 模拟追踪区域更新, 每个数加1
-        
+
         socket.send_json({"status": "ok", "bbox": bbox})
+
+        # cv2.imshow("追踪", frame)
+        # cv2.waitKey(1)
 
     else:
         socket.send_json({"status": "error", "msg": "tracker not initialized"})

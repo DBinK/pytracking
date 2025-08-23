@@ -20,7 +20,8 @@ class RemoteTracker:
         # multipart: [json, binary]
         self.socket.send_multipart([json.dumps(meta).encode("utf-8"), frame_bytes])
         reply = self.socket.recv_json()
-        if reply["status"] == "ok":
+        # 确保reply是字典类型
+        if isinstance(reply, dict) and reply.get("status") == "ok":
             self.initialized = True
             return True
         return False
@@ -33,16 +34,24 @@ class RemoteTracker:
         frame_bytes = self._encode_frame(frame)
         self.socket.send_multipart([json.dumps(meta).encode("utf-8"), frame_bytes])
         reply = self.socket.recv_json()
-
-        if reply["status"] == "ok":
-            return True, tuple(reply["bbox"])
+        
+        # 确保reply是字典类型
+        if isinstance(reply, dict) and reply.get("status") == "ok":
+            bbox = reply["bbox"]  # 确保bbox可以转换为tuple类型
+            if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+                return True, tuple(bbox)  
+            else:                 # 如果bbox不是期望的格式，则返回错误
+                return False, None
         else:
             return False, None
+
 
 if __name__ == "__main__":
     tracker = RemoteTracker()
     cap = cv2.VideoCapture("tmp/1.mp4")
+
     print(f"视频帧数: {cap.get(cv2.CAP_PROP_FRAME_COUNT)}")
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
