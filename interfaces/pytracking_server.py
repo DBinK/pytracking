@@ -130,7 +130,7 @@ class TrackerServer:
             session_thread.start()
             self.sessions[session_id] = session_thread
 
-            logger.info(f"开始新任务 {session_id}")
+            logger.info(f"开始新任务: {bbox}, {session_id}")
             
             # 等待初始化结果
             session_thread.result_available.wait()
