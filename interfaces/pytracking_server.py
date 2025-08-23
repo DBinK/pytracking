@@ -1,4 +1,4 @@
-
+# pytracking_server.py
 import json
 import threading
 import time
@@ -16,11 +16,12 @@ from interfaces.cv_wrapper import TrackerDiMP_create
 
 
 class SessionThread(threading.Thread):
-    def __init__(self, session_id, frame, bbox):
+    def __init__(self, session_id, frame, bbox, vis=False):
         super().__init__()
         self.session_id = session_id
         self.frame = frame
         self.bbox = bbox
+        self.vis = vis
         self.tracker = None
         self.initialized = False
         self.lock = threading.Lock()
@@ -56,25 +57,34 @@ class SessionThread(threading.Thread):
             # 调用实际的追踪器更新方法
             success, bbox = self.tracker.update(frame)
 
-            # 显示帧（仅用于调试）
-            if frame is not None:
-                cv2.namedWindow(self.session_id, cv2.WINDOW_NORMAL)
+            # 根据vis参数决定是否显示调试窗口
+            if self.vis:
+                if frame is not None:
+                    cv2.namedWindow(self.session_id, cv2.WINDOW_NORMAL)
 
-            if success and bbox is not None:
-                # 绘制边界框
-                x, y, w, h = [int(v) for v in bbox]
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(frame, "DiMP", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+                if success and bbox is not None:
+                    # 绘制边界框
+                    x, y, w, h = [int(v) for v in bbox]
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, "DiMP", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+                    
+                    if self.vis:
+                        cv2.imshow(self.session_id, frame)
+                        cv2.waitKey(1)
+                    return bbox
                 
-                cv2.imshow(self.session_id, frame)
-                cv2.waitKey(1)
-                return bbox
-            
+                else:
+                    if self.vis:
+                        cv2.putText(frame, "追踪失败", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+                        cv2.imshow(self.session_id, frame)
+                        cv2.waitKey(1)
+                    return None
             else:
-                cv2.putText(frame, "追踪失败", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-                cv2.imshow(self.session_id, frame)
-                cv2.waitKey(1)
-                return None
+                # 不显示调试窗口，直接返回结果
+                if success and bbox is not None:
+                    return bbox
+                else:
+                    return None
             
         except Exception as e:
             logger.info(f"会话 {self.session_id} 更新跟踪器失败: {e}")
@@ -82,11 +92,13 @@ class SessionThread(threading.Thread):
 
     def stop(self):
         self.stop_event.set()
-        cv2.destroyWindow(self.session_id)
+        # 只有在启用调试可视化时才需要销毁窗口
+        if self.vis:
+            cv2.destroyWindow(self.session_id)
 
 
 class TrackerServer:
-    def __init__(self):
+    def __init__(self, vis=False):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind("tcp://*:5555")
@@ -94,6 +106,7 @@ class TrackerServer:
         # 存储多个会话线程，以会话ID为键
         self.sessions = {}
         self.sessions_lock = threading.Lock()
+        self.vis = vis
         
         logger.info("服务端启动...")
 
@@ -113,7 +126,7 @@ class TrackerServer:
                 self.sessions[session_id].join()
                 
             # 创建并启动新的会话线程
-            session_thread = SessionThread(session_id, frame, bbox)
+            session_thread = SessionThread(session_id, frame, bbox, self.vis)
             session_thread.start()
             self.sessions[session_id] = session_thread
 
@@ -220,5 +233,12 @@ class TrackerServer:
 
 
 if __name__ == "__main__":
-    server = TrackerServer()
+    # 可以通过命令行参数控制是否启用调试可视化
+    # import argparse
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--debug", action="store_true", help="启用调试可视化")
+    # args = parser.parse_args()
+    
+    # server = TrackerServer(vis=args.debug)
+    server = TrackerServer(vis=False)
     server.run()
