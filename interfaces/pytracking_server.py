@@ -1,6 +1,4 @@
-import zmq
-import cv2
-import numpy as np
+
 import json
 import threading
 import time
@@ -8,6 +6,11 @@ import time
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+import cv2
+import zmq
+import numpy as np
+from loguru import logger
 
 from interfaces.cv_wrapper import TrackerDiMP_create
 
@@ -41,7 +44,7 @@ class SessionThread(threading.Thread):
                 time.sleep(0.001)  # 避免过度占用CPU
                 
         except Exception as e:
-            print(f"会话 {self.session_id} 初始化跟踪器失败: {e}")
+            logger.error(f"会话 {self.session_id} 初始化跟踪器失败: {e}")
             self.result = {"status": "error", "msg": str(e)}
             self.result_available.set()
 
@@ -74,7 +77,7 @@ class SessionThread(threading.Thread):
                 return None
             
         except Exception as e:
-            print(f"会话 {self.session_id} 更新跟踪器失败: {e}")
+            logger.info(f"会话 {self.session_id} 更新跟踪器失败: {e}")
             return None
 
     def stop(self):
@@ -92,7 +95,7 @@ class TrackerServer:
         self.sessions = {}
         self.sessions_lock = threading.Lock()
         
-        print("服务端启动...")
+        logger.info("服务端启动...")
 
     def decode_frame(self, buf):
         """解码JPEG为numpy图像"""
@@ -113,6 +116,8 @@ class TrackerServer:
             session_thread = SessionThread(session_id, frame, bbox)
             session_thread.start()
             self.sessions[session_id] = session_thread
+
+            logger.info(f"开始新任务 {session_id}")
             
             # 等待初始化结果
             session_thread.result_available.wait()
