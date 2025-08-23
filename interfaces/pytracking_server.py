@@ -203,17 +203,44 @@ class TrackerServer:
         try:
             while True:
                 # multipart 接收: [json字符串, 图像二进制]
-                meta_str, frame_buf = self.socket.recv_multipart()
-                msg = json.loads(meta_str.decode("utf-8"))
-                cmd = msg["cmd"]
+                parts = self.socket.recv_multipart()
+                
+                # 检查接收到的部分数量
+                if len(parts) != 2:
+                    logger.error(f"接收到错误的消息部分数量: {len(parts)}, 期望: 2")
+                    self.socket.send_json({"status": "error", "msg": "invalid message format"})
+                    continue
+                    
+                meta_str, frame_buf = parts
+                logger.debug(f"接收到消息，元数据长度: {len(meta_str)}, 帧数据长度: {len(frame_buf)}")
+                
+                try:
+                    msg = json.loads(meta_str.decode("utf-8"))
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON解码失败: {e}")
+                    self.socket.send_json({"status": "error", "msg": "invalid json format"})
+                    continue
+                    
+                cmd = msg.get("cmd", "unknown")
+                logger.debug(f"收到命令: {cmd}")
 
                 if cmd == "init":
                     frame = self.decode_frame(frame_buf)
+                    if frame is None:
+                        logger.error("帧解码失败")
+                        self.socket.send_json({"status": "error", "msg": "failed to decode frame"})
+                        continue
+                        
                     response = self.handle_init_command(frame, msg)
                     self.socket.send_json(response)
 
                 elif cmd == "update":
                     frame = self.decode_frame(frame_buf)
+                    if frame is None:
+                        logger.error("帧解码失败")
+                        self.socket.send_json({"status": "error", "msg": "failed to decode frame"})
+                        continue
+                        
                     response = self.handle_update_command(frame, msg)
                     self.socket.send_json(response)
 
@@ -222,7 +249,12 @@ class TrackerServer:
                     self.socket.send_json(response)
 
                 else:
+                    logger.warning(f"未知命令: {cmd}")
                     self.socket.send_json({"status": "error", "msg": "unknown command"})
+        except Exception as e:
+            logger.error(f"服务器运行时发生异常: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             # 清理所有会话
             with self.sessions_lock:
@@ -230,6 +262,7 @@ class TrackerServer:
                     session_thread.stop()
                     session_thread.join()
                 self.sessions.clear()
+                logger.info("服务器已关闭，所有会话已清理")
 
 
 if __name__ == "__main__":
@@ -240,5 +273,6 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     
     # server = TrackerServer(vis=args.debug)
-    server = TrackerServer(vis=False)
+    # server = TrackerServer(vis=False)
+    server = TrackerServer(vis=True)
     server.run()
