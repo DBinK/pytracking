@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from interfaces.cv_wrapper import TrackerDiMP_create
 
+
 class TrackerServer:
     def __init__(self):
         self.context = zmq.Context()
