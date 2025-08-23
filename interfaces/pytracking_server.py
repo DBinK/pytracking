@@ -2,7 +2,6 @@ import zmq
 import cv2
 import numpy as np
 import json
-import uuid
 
 import sys
 import os
@@ -26,18 +25,6 @@ class TrackerServer:
         """解码JPEG为numpy图像"""
         np_arr = np.frombuffer(buf, dtype=np.uint8)
         return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-    def create_session(self):
-        """
-        创建新的会话ID
-        """
-        session_id = str(uuid.uuid4())
-        self.trackers[session_id] = {
-            'tracker': None,
-            'initialized': False,
-            'bbox': None
-        }
-        return session_id
 
     def init_tracker(self, session_id, frame, bbox):
         """
@@ -77,28 +64,30 @@ class TrackerServer:
             # 调用实际的追踪器更新方法
             success, bbox = self.trackers[session_id]['tracker'].update(frame)
 
-            cv2.namedWindow(session_id, cv2.WINDOW_NORMAL)
+            # 显示帧（仅用于调试）
+            if frame is not None:
+                cv2.namedWindow(session_id, cv2.WINDOW_NORMAL)
+
             if success and bbox is not None:
-                # 绘制边界框（仅用于调试）
+                # 绘制边界框
                 x, y, w, h = [int(v) for v in bbox]
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 cv2.putText(frame, "DiMP", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+                
                 cv2.imshow(session_id, frame)
                 cv2.waitKey(1)
 
                 # 更新保存的边界框
                 self.trackers[session_id]['bbox'] = bbox
                 return bbox
+            
             else:
                 cv2.putText(frame, "追踪失败", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-
-                # 显示帧（仅用于调试）
                 cv2.imshow(session_id, frame)
                 cv2.waitKey(1)
 
                 return None
             
-
         except Exception as e:
             print(f"更新跟踪器失败: {e}")
             return None
@@ -118,12 +107,11 @@ class TrackerServer:
         
         session_id = msg.get("session_id")
         if not session_id:
-            # 创建新的会话
-            session_id = self.create_session()
+            return {"status": "error", "msg": "session_id is required"}
         
         success = self.init_tracker(session_id, frame, msg["bbox"])
         if success:
-            return {"status": "ok", "session_id": session_id}
+            return {"status": "ok"}
         else:
             return {"status": "error", "msg": "failed to initialize tracker"}
 
@@ -168,7 +156,6 @@ class TrackerServer:
                 frame = self.decode_frame(frame_buf)
                 response = self.handle_update_command(frame, msg)
                 self.socket.send_json(response)
-
 
             elif cmd == "release":
                 response = self.handle_release_command(msg)
