@@ -1,6 +1,6 @@
-# client.py
 import zmq
 import cv2
+import json
 
 class RemoteTracker:
     def __init__(self, address="tcp://127.0.0.1:5555"):
@@ -10,17 +10,15 @@ class RemoteTracker:
         self.initialized = False
 
     def _encode_frame(self, frame):
-        """编码图像为JPEG，并转hex字符串"""
+        """编码图像为JPEG（二进制）"""
         _, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-        return buf.tobytes().hex()
+        return buf.tobytes()
 
     def init(self, frame, bbox):
-        msg = {
-            "cmd": "init",
-            "frame": self._encode_frame(frame),
-            "bbox": bbox
-        }
-        self.socket.send_json(msg)
+        meta = {"cmd": "init", "bbox": bbox}
+        frame_bytes = self._encode_frame(frame)
+        # multipart: [json, binary]
+        self.socket.send_multipart([json.dumps(meta).encode("utf-8"), frame_bytes])
         reply = self.socket.recv_json()
         if reply["status"] == "ok":
             self.initialized = True
@@ -31,11 +29,9 @@ class RemoteTracker:
         if not self.initialized:
             raise RuntimeError("Tracker not initialized. Call init() first.")
 
-        msg = {
-            "cmd": "update",
-            "frame": self._encode_frame(frame),
-        }
-        self.socket.send_json(msg)
+        meta = {"cmd": "update"}
+        frame_bytes = self._encode_frame(frame)
+        self.socket.send_multipart([json.dumps(meta).encode("utf-8"), frame_bytes])
         reply = self.socket.recv_json()
 
         if reply["status"] == "ok":
@@ -55,12 +51,8 @@ if __name__ == "__main__":
         if not tracker.initialized:
             tracker.init(frame, (100, 100, 400, 400))
 
-        # 记录开始时间（时钟周期数）
         start_tick = cv2.getTickCount()
-
         success, bbox = tracker.update(frame)
-
-        # 记录结束时间（时钟周期数），并计算用时（秒）
         end_tick = cv2.getTickCount()
         elapsed_time = (end_tick - start_tick) / cv2.getTickFrequency() * 1000
 

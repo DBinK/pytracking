@@ -1,8 +1,7 @@
-# server.py
 import zmq
 import cv2
 import numpy as np
-import pickle
+import json
 
 context = zmq.Context()
 socket = context.socket(zmq.REP)
@@ -13,29 +12,34 @@ print("服务端启动...")
 tracker_initialized = False
 init_bbox = None
 
+def decode_frame(buf):
+    """解码JPEG为numpy图像"""
+    np_arr = np.frombuffer(buf, dtype=np.uint8)
+    return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
 while True:
-    msg = socket.recv_json()
+    # multipart 接收: [json字符串, 图像二进制]
+    meta_str, frame_buf = socket.recv_multipart()
+    msg = json.loads(meta_str.decode("utf-8"))
     cmd = msg["cmd"]
 
     if cmd == "init":
-        # 初始化目标跟踪
-        frame_data = bytes.fromhex(msg["frame"])
-        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+        frame = decode_frame(frame_buf)
         init_bbox = tuple(msg["bbox"])
+        bbox = init_bbox
         tracker_initialized = True
 
-        # TODO: 在这里初始化你的真正 tracker
-        
+        # TODO: 初始化你的 tracker
+
         socket.send_json({"status": "ok"})
 
     elif cmd == "update" and tracker_initialized:
-        frame_data = bytes.fromhex(msg["frame"])
-        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-        # TODO: 在这里调用你的 tracker.update(frame)
+        frame = decode_frame(frame_buf)
 
-        # 模拟一个返回 bbox
-        h, w, _ = frame.shape
-        bbox = (w//4, h//4, w//2, h//2)
+        # TODO: 调用 tracker.update(frame)
+
+        bbox = [x+1 for x in bbox] # 模拟追踪区域更新, 每个数加1
+        
         socket.send_json({"status": "ok", "bbox": bbox})
 
     else:
