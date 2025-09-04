@@ -1,3 +1,3 @@
 #!/bin/bash
-
-uv run interfaces/pytracking_server.py
+cd ~/pytracking
+uv run ~/pytracking/interfaces/pytracking_server.py
