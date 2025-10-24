@@ -101,10 +101,11 @@ class SessionThread(threading.Thread):
 
 
 class TrackerServer:
-    def __init__(self, vis=False):
+    def __init__(self, vis=False, address="tcp://*:5555"):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
-        self.socket.bind("tcp://*:5555")
+        self.address = address
+        self.socket.bind(self.address)
         
         # 存储多个会话线程，以会话ID为键
         self.sessions = {}
@@ -112,6 +113,7 @@ class TrackerServer:
         self.vis = vis
         
         logger.info("服务端启动...")
+        logger.info(f"监听地址: {self.address}")
 
     def decode_frame(self, buf):
         """解码JPEG为numpy图像"""
